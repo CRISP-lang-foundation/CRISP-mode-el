@@ -93,7 +93,7 @@ class Animal {
 
 ## 📄 License
 
-Dual-licensed: Apache 2.0 or MIT (your choice).
+GPLv3+ - [LICENSE](https://github.com/CRISP-lang-foundation/CRISP-mode-el/LICENSE)
 
 ---
 
