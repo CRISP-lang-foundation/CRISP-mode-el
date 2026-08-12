@@ -92,7 +92,7 @@ class Animal {
 
 ## 📄 License
 
-GPLv3+ - [LICENSE](https://github.com/CRISP-lang-foundation/CRISP-mode-el/LICENSE)
+GPLv3+ - [LICENSE](https://github.com/CRISP-lang-foundation/CRISP-mode-el/blob/main/LICENSE)
 
 ---
 
