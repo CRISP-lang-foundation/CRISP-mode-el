@@ -97,8 +97,7 @@ GPLv3+ - [LICENSE](https://github.com/CRISP-lang-foundation/CRISP-mode-el/blob/m
 ---
 
 ## 🔗 Links
-
-- [GitHub Repo](https://github.com/CRISP-lang-foundation/CRISP-mode-el)
+- [CRISP Book](https://github.com/CRISP-lang-foundation/CRISP-book)
 - [CRISP Language](https://github.com/CRISP-lang-foundation/CRISP-lang)
 
 ---
