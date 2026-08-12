@@ -1,7 +1,6 @@
 # 🦀 crisp-mode.el — Emacs Major Mode for CRISP
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE-APACHE)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+[![License](https://img.shields.io/badge/License-GPLv3+%20-blue.svg)](LICENSE)
 [![Emacs](https://img.shields.io/badge/Emacs-27.1+-purple.svg)](https://www.gnu.org/software/emacs/)
 [![Version](https://img.shields.io/badge/Version-0.1.7-brightgreen.svg)](https://github.com/CRISP-lang-foundation/crisp-mode)
 
