@@ -16,7 +16,7 @@
 ;; - Syntax highlighting (font-lock)
 ;; - Smart indentation
 ;; - Auto-indent on Enter
-;; - Template insertion (if, while, for, fn, class, try/catch)
+;; - Template insertion (if, while, for, fn, class, try/catch, match)
 ;; - Imenu support (functions and classes)
 ;; - Tree-sitter support (optional, Emacs 29+)
 
@@ -43,16 +43,20 @@
 
 (defvar crisp-mode-syntax-table
   (let ((table (make-syntax-table)))
+    ;; Comments
     (modify-syntax-entry ?#  "<"   table)
     (modify-syntax-entry ?\n ">"   table)
+    ;; Strings
     (modify-syntax-entry ?\" "\""  table)
     (modify-syntax-entry ?\' "\""  table)
+    ;; Parentheses
     (modify-syntax-entry ?\( "()"  table)
     (modify-syntax-entry ?\) ")("  table)
     (modify-syntax-entry ?\{ "(}"  table)
     (modify-syntax-entry ?\} "){"  table)
     (modify-syntax-entry ?\[ "(]"  table)
     (modify-syntax-entry ?\] ")["  table)
+    ;; Operators
     (modify-syntax-entry ?+ "."    table)
     (modify-syntax-entry ?- "."    table)
     (modify-syntax-entry ?* "."    table)
@@ -76,13 +80,18 @@
       'font-lock-operator-face
     'font-lock-keyword-face))
 
+(defvar crisp--builtin-face
+  (if (facep 'font-lock-builtin-face)
+      'font-lock-builtin-face
+    'font-lock-preprocessor-face))
+
 (defvar crisp-font-lock-keywords
   `(;; Keywords
     (,(regexp-opt '("let" "const" "fn" "if" "else" "while" "for" "return"
                     "match" "where" "in" "use" "print" "say" "die" "warn"
                     "throw" "try" "catch" "finally" "break" "continue"
                     "class" "extends" "self" "super" "static" "new"
-                    "true" "false" "null" "assert")
+                    "true" "false" "null" "assert" "as")
                   'words)
      0 font-lock-keyword-face)
 
@@ -93,9 +102,20 @@
                     "take" "zip" "type" "int" "float" "exit" "pid"
                     "sleep" "time" "timestamp" "system" "read_file"
                     "write_file" "file_exists" "readline" "read"
-                    "input" "create_dir" "list_dir" "is_dir")
+                    "input" "create_dir" "list_dir" "is_dir"
+                    "regex_match" "regex_replace" "regex_split"
+                    "regex_find_all" "regex_capture"
+                    "to_json" "from_json" "to_json_pretty" "json_valid"
+                    "md5" "sha1" "sha256" "sha512"
+                    "base64_encode" "base64_decode" "random_bytes"
+                    "tcp_connect" "tcp_listen" "tcp_accept"
+                    "tcp_read" "tcp_write" "tcp_close"
+                    "http_get" "http_post" "http_put" "http_delete" "http_patch"
+                    "strftime" "strptime" "datetime" "datetime_utc"
+                    "test" "assert_eq" "assert_ne" "assert_true"
+                    "assert_false" "assert_throws")
                   'words)
-     0 font-lock-builtin-face)
+     0 crisp--builtin-face)
 
     ;; Type names
     (,(regexp-opt '("int" "float" "string" "array" "hash" "bool" "null"
@@ -113,17 +133,37 @@
     ("'\\([^'\\]\\|\\\\.\\)*'"
      0 font-lock-string-face)
 
+    ;; Regex literals (m/.../, qr/.../)
+    ("m/[^/\n]*/"
+     0 font-lock-string-face)
+    ("qr/[^/\n]*/"
+     0 font-lock-string-face)
+
+    ;; Substitution operator s/// with delimiters
+    ("s/[^/\n]*/[^/\n]*/[gimsxe]*"
+     0 font-lock-keyword-face)
+    ("s#.*?#.*?#[gimsxe]*"
+     0 font-lock-keyword-face)
+
     ;; Numeric literals
     ("\\_<-?[0-9][0-9_]*\\(\\.[0-9][0-9_]*\\)?\\_>"
      0 font-lock-constant-face)
 
-    ;; Comments
+    ;; Comments: #, //, /* */
     ("#.*$" 0 font-lock-comment-face)
+    ("//.*$" 0 font-lock-comment-face)
+    ("/\\*.*?\\*/" 0 font-lock-comment-face)
+
+    ;; Doc comments: ///, //!
+    ("///.*$" 0 font-lock-doc-face)
+    ("//!.*$" 0 font-lock-doc-face)
 
     ;; Sigils
     ("\\$\\([a-zA-Z_][a-zA-Z0-9_]*\\)"
      1 font-lock-variable-name-face)
     ("@\\([a-zA-Z_][a-zA-Z0-9_]*\\)"
+     1 font-lock-variable-name-face)
+    ("%\\([a-zA-Z_][a-zA-Z0-9_]*\\)"
      1 font-lock-variable-name-face)
     ("&\\([a-zA-Z_][a-zA-Z0-9_]*\\)"
      1 font-lock-variable-name-face)
@@ -144,7 +184,7 @@
     ("\\.\\([a-zA-Z_][a-zA-Z0-9_]*\\)\\s-*("
      1 font-lock-function-name-face)
 
-    ;; Hash keys
+    ;; Hash keys (with =>)
     ("{\\s-*\\([a-zA-Z_][a-zA-Z0-9_]*\\)\\s-*=>"
      1 font-lock-variable-name-face)
 
@@ -152,11 +192,19 @@
     ("|\\([a-zA-Z_][a-zA-Z0-9_]*\\)|\\s-*=>"
      1 font-lock-variable-name-face)
 
+    ;; Match patterns (match ... { pattern => })
+    ("\\_<match\\_>.*?{\\s-*\\([a-zA-Z_][a-zA-Z0-9_]*\\)\\s-*=>"
+     1 font-lock-constant-face)
+
     ;; Operators
     (,(regexp-opt '("+=" "-=" "*=" "/=" "%=" "**="
                     "==" "!=" "<=" ">=" "<=>" "=~" "!~"
-                    "&&" "||" "<<" ">>" ".." "..." "**") t)
-     0 crisp--operator-face))
+                    "&&" "||" "<<" ">>" ".." "..." "**" "::") t)
+     0 crisp--operator-face)
+
+    ;; Contextual keywords
+    ("\\_<new\\_>\\s-+\\([A-Z][a-zA-Z0-9_]*\\)"
+     1 font-lock-type-face))
 
   "Font-lock keywords for `crisp-mode'.")
 
@@ -198,7 +246,19 @@
 (defun crisp-insert-try-template ()
   "Insert a try/catch/finally template."
   (interactive)
-  (crisp--insert-template "try {\n    \n} catch (|) {\n    \n}"))
+  (crisp--insert-template "try {\n    \n} catch | {\n    \n}"))
+
+(defun crisp-insert-match-template ()
+  "Insert a match statement template."
+  (interactive)
+  (crisp--insert-template "match | {\n    _ => { \n    }\n}"))
+
+(defun crisp-insert-substitution-template ()
+  "Insert a substitution operator template (s///)."
+  (interactive)
+  (insert "s/|/|/g")
+  (search-backward "|")
+  (delete-char 1))
 
 ;; --- Indentation ----------------------------------------------------------
 
@@ -236,6 +296,18 @@
          (> (point) (1+ (line-beginning-position)))
          (char-equal (char-before (1- (point))) ?\=))))
 
+(defun crisp--prev-line-ends-with-sigil-p ()
+  "Return non-nil if previous line ends with a sigil operator `=~` or `!~`."
+  (save-excursion
+    (forward-line -1)
+    (while (and (not (bobp)) (looking-at-p "^\\s-*$"))
+      (forward-line -1))
+    (end-of-line)
+    (skip-chars-backward " \t")
+    (and (> (point) (1+ (line-beginning-position)))
+         (char-equal (char-before) ?~)
+         (memq (char-before (1- (point))) '(?= ?!)))))
+
 (defun crisp--calculate-indentation ()
   "Calculate indentation for current line."
   (save-excursion
@@ -261,6 +333,8 @@
                 ((crisp--looking-at-block-keyword-p)
                  (+ prev-indent crisp-indent-offset))
                 ((crisp--prev-line-ends-with-fat-arrow-p)
+                 (+ prev-indent crisp-indent-offset))
+                ((crisp--prev-line-ends-with-sigil-p)
                  (+ prev-indent crisp-indent-offset))
                 ((looking-at-p "^\\s-*[][}]")
                  (max 0 (- prev-indent crisp-indent-offset)))
@@ -301,14 +375,20 @@ C-c i w  while loop
 C-c i F  for loop
 C-c i n  function
 C-c i c  class
-C-c i t  try/catch"
+C-c i t  try/catch
+C-c i m  match statement
+C-c i s  substitution operator (s///)"
 
   ;; --- Basic setup ---
   (setq-local font-lock-defaults '(crisp-font-lock-keywords nil nil))
   (setq-local indent-line-function #'crisp-indent-line)
   (setq-local comment-start "#")
-  (setq-local comment-start-skip "#+\\s-*")
+  (setq-local comment-start-skip "\\(#\\|//\\)+\\s-*")
   (setq-local comment-end "")
+
+  ;; --- Support multiple comment styles ---
+  (setq-local comment-use-syntax t)
+  (setq-local comment-add 1)
 
   ;; --- Electric Indent (auto-indent on Enter) ---
   (electric-indent-local-mode 1)
@@ -324,6 +404,8 @@ C-c i t  try/catch"
   (local-set-key (kbd "C-c i n") #'crisp-insert-fn-template)
   (local-set-key (kbd "C-c i c") #'crisp-insert-class-template)
   (local-set-key (kbd "C-c i t") #'crisp-insert-try-template)
+  (local-set-key (kbd "C-c i m") #'crisp-insert-match-template)
+  (local-set-key (kbd "C-c i s") #'crisp-insert-substitution-template)
 
   ;; --- Indentation settings ---
   (setq-local tab-width crisp-indent-offset)
@@ -360,8 +442,12 @@ C-c i t  try/catch"
                   (treesit-font-lock-rules
                    :feature 'comment
                    '((comment) @font-lock-comment-face)
+                   :feature 'doc
+                   '((doc_comment) @font-lock-doc-face)
                    :feature 'string
                    '((string) @font-lock-string-face)
+                   :feature 'regex
+                   '((regex) @font-lock-string-face)
                    :feature 'number
                    '((number) @font-lock-constant-face)
                    :feature 'keyword
@@ -371,10 +457,14 @@ C-c i t  try/catch"
                    :feature 'type
                    '((class_name) @font-lock-type-face)
                    :feature 'variable
-                   '((variable_name) @font-lock-variable-name-face)))
+                   '((variable_name) @font-lock-variable-name-face)
+                   :feature 'operator
+                   '((operator) @font-lock-operator-face)
+                   :feature 'sigil
+                   '((sigil) @font-lock-variable-name-face)))
       (setq-local treesit-font-lock-feature-list
-                  '((comment string number)
-                    (keyword function type variable)))
+                  '((comment doc string regex number)
+                    (keyword function type variable operator sigil)))
       (treesit-major-mode-setup))))
 
 ;; --- File Associations ---------------------------------------------------
@@ -387,9 +477,9 @@ C-c i t  try/catch"
 ;; --- Interactive Commands ------------------------------------------------
 
 (defun crisp-insert-sigil ()
-  "Insert a sigil ($, @, or &) at point."
+  "Insert a sigil ($, @, %, or &) at point."
   (interactive)
-  (let ((sigil (read-char-choice "Sigil: ($ @ &) " '(?$ ?@ ?&))))
+  (let ((sigil (read-char-choice "Sigil: ($ @ % &) " '(?$ ?@ ?% ?&))))
     (insert (char-to-string sigil))))
 
 ;;;###autoload
@@ -399,10 +489,22 @@ C-c i t  try/catch"
   (message "Evaluating CRISP code...")
   (shell-command-on-region beg end "crisp -e -" nil t))
 
+(defun crisp-comment-region ()
+  "Comment the region using CRISP comment style (#)."
+  (interactive)
+  (comment-region (region-beginning) (region-end)))
+
+(defun crisp-uncomment-region ()
+  "Uncomment the region using CRISP comment style (#)."
+  (interactive)
+  (uncomment-region (region-beginning) (region-end)))
+
 (defvar crisp-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") #'crisp-eval-region)
     (define-key map (kbd "C-c $")   #'crisp-insert-sigil)
+    (define-key map (kbd "C-c ;")   #'crisp-comment-region)
+    (define-key map (kbd "C-c C-;") #'crisp-uncomment-region)
     map)
   "Keymap for `crisp-mode'.")
 
